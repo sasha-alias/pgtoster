@@ -11,18 +11,20 @@ PGToster is a happy path tests runner for Postgresql
 
     pgtoster <path> <conn_url>
 
-PGToster scans <path> for files with .sql extension and executes statements from there.
+PGToster scans _path_ for files with .sql extension and executes statements from there.
 
 Tests within sql files have to be separated by three dashes following by mandatory "test" keyword and optional extra text:
 
-    --- test foo.bar
-    SELECT * FROM foo.bar()
+``` postgresql
+--- test foo.bar
+SELECT * FROM foo.bar()
 
-    --- test foo.bar1
-    SELECT * FROM foo.bar('baz')
+--- test foo.bar1
+SELECT * FROM foo.bar('baz')
 
-    --- test foo.bar.2
-    SELECT * FROM foo.bar('baz', 'quz')
+--- test foo.bar2
+SELECT * FROM foo.bar('baz', 'quz')
+```
 
 Example:
 
