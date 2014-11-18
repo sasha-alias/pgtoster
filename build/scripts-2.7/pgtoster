@@ -1,0 +1,90 @@
+#!/usr/bin/python
+
+import os
+import sys
+import glob
+import psycopg2
+from optparse import OptionParser
+
+usage = """PGToster - happy path tests runner for Postgresql
+Usage:
+    pgtoster <path> <conn_url>
+
+PGToster scans <path> for files with .sql extension and executes statements from there.
+
+Example:
+    pgtoster ./tests/ postgresql://user@localhost:5432/dbname
+"""
+parser = OptionParser(usage=usage)
+(options, args) = parser.parse_args()
+DIR = args[0]
+CONNSTR = args[1]
+
+list_sql = glob.glob(os.path.join(DIR, "*.sql"))
+executed_tests = []
+failed_tests = []
+
+
+class Test(object):
+    """ Test is a sql statement or an anonymous plpgsql block """
+
+    def __init__(self, file_path, name, script):
+        self.file_path = file_path
+        self.name = name
+        self.script = script
+
+    def run(self):
+        conn = psycopg2.connect(CONNSTR)
+        cur = conn.cursor()
+        try:
+            cur.execute(self.script)
+            sys.stdout.write('.')
+            sys.stdout.flush()
+        except Exception as e:
+            failed_tests.append((self.file_path, self.name, e))
+            sys.stdout.write('E')
+        conn.rollback()
+
+
+class TestSuit(list):
+    """ Test suit is a file containing tests """
+
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.test = []
+        lines = file(self.file_path).readlines()
+
+        test_name = None
+        test_lines = []
+        for l in lines:
+            if l.startswith('--- test '):  # append previous test and reset lines
+                if test_name is not None:
+                    self.append(Test(self.file_path, test_name, '\n'.join(test_lines)))
+
+                test_name = l.lstrip('--- test ')
+                test_lines = []
+
+            if test_name is not None:  # append line to current test
+                test_lines.append(l)
+
+        if test_name is not None and test_lines:  # if the last test in file
+            self.append(Test(self.file_path, test_name, '\n'.join(test_lines)))
+
+
+for f in list_sql:
+    test_suit = TestSuit(f)
+    for test in test_suit:
+        executed_tests.append(test)
+        test.run()
+
+if failed_tests:
+    print "\nFailded:"
+    for err in failed_tests:
+        print "  - %s %s: %s" % err
+
+print ""
+print "Tests run:"
+print "  %s executed" % len(executed_tests)
+print "  %s successful" % (len(executed_tests) - len(failed_tests))
+print "  %s failed" % len(failed_tests)
+print ""
