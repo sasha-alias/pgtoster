@@ -43,7 +43,7 @@ class Test(object):
         except Exception as e:
             failed_tests.append((self.file_path, self.name, e))
             sys.stdout.write('E')
-        conn.rollback()
+        conn.commit()
 
 
 class TestSuit(list):
